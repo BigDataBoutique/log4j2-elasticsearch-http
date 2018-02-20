@@ -6,7 +6,10 @@ import org.apache.logging.log4j.ThreadContext;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.appender.AppenderLoggingException;
 import org.apache.logging.log4j.message.Message;
+import org.apache.logging.log4j.util.ReadOnlyStringMap;
+import org.apache.logging.log4j.util.SortedArrayStringMap;
 import org.easymock.Capture;
+import org.easymock.EasyMock;
 import org.easymock.IAnswer;
 import org.junit.After;
 import org.junit.Before;
@@ -122,7 +125,7 @@ public class NoSqlDatabaseManagerTest {
             }
         } finally {
             try {
-                manager.release();
+                manager.close();
             } catch (final Throwable ignore) {
                 /* */
             }
@@ -158,10 +161,12 @@ public class NoSqlDatabaseManagerTest {
             expect(message.getFormattedMessage()).andReturn("My formatted message 01.");
             expect(event.getSource()).andReturn(new StackTraceElement("com.foo.Bar", "testMethod01", "Bar.java", 15));
             expect(event.getMarker()).andReturn(null);
+            expect(event.getThreadId()).andReturn(999L);
             expect(event.getThreadName()).andReturn("MyThread-A");
+            expect(event.getThreadPriority()).andReturn(1);
             expect(event.getTimeMillis()).andReturn(1234567890123L).times(2);
             expect(event.getThrown()).andReturn(null);
-            expect(event.getContextMap()).andReturn(null);
+            expect(event.getContextData()).andReturn(null);
             expect(event.getContextStack()).andReturn(null);
             this.connection.insertObject(capture(capture));
             expectLastCall();
@@ -192,7 +197,7 @@ public class NoSqlDatabaseManagerTest {
             verify(this.provider, this.connection, event, message);
         } finally {
             try {
-                manager.release();
+                manager.close();
             } catch (final Throwable ignore) {
                 /* */
             }
@@ -214,7 +219,7 @@ public class NoSqlDatabaseManagerTest {
             reset(this.provider, this.connection);
             final Capture<NoSqlObject<Map<String, Object>>> capture = new Capture<NoSqlObject<Map<String, Object>>>();
             final RuntimeException exception = new RuntimeException("This is something cool!");
-            final Map<String, String> context = new HashMap<String, String>();
+            final Map<String, String> context = new HashMap<>();
             context.put("hello", "world");
             context.put("user", "pass");
             final LogEvent event = createStrictMock(LogEvent.class);
@@ -248,10 +253,12 @@ public class NoSqlDatabaseManagerTest {
             expect(message.getFormattedMessage()).andReturn("Another cool message 02.");
             expect(event.getSource()).andReturn(new StackTraceElement("com.bar.Foo", "anotherMethod03", "Foo.java", 9));
             expect(event.getMarker()).andReturn(MarkerManager.getMarker("LoneMarker"));
+            expect(event.getThreadId()).andReturn(1999L);
             expect(event.getThreadName()).andReturn("AnotherThread-B");
+            expect(event.getThreadPriority()).andReturn(1);
             expect(event.getTimeMillis()).andReturn(987654321564L).times(2);
             expect(event.getThrown()).andReturn(exception);
-            expect(event.getContextMap()).andReturn(context);
+            expect(event.getContextData()).andReturn(new SortedArrayStringMap(context));
             expect(event.getContextStack()).andReturn(stack);
             this.connection.insertObject(capture(capture));
             expectLastCall();
@@ -379,10 +386,12 @@ public class NoSqlDatabaseManagerTest {
             expect(event.getMarker()).andReturn(
                     MarkerManager.getMarker("AnotherMarker").addParents(MarkerManager.getMarker("Parent1").addParents(MarkerManager.getMarker("GrandParent1")),
                             MarkerManager.getMarker("Parent2")));
+            expect(event.getThreadId()).andReturn(1999L);
             expect(event.getThreadName()).andReturn("AnotherThread-B");
+            expect(event.getThreadPriority()).andReturn(1);
             expect(event.getTimeMillis()).andReturn(987654321564L).times(2);
             expect(event.getThrown()).andReturn(exception2);
-            expect(event.getContextMap()).andReturn(context);
+            expect(event.getContextData()).andReturn(new SortedArrayStringMap(context));
             expect(event.getContextStack()).andReturn(stack);
             this.connection.insertObject(capture(capture));
             expectLastCall();

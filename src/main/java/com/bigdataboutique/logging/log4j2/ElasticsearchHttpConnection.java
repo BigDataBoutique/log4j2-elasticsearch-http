@@ -1,5 +1,5 @@
 /**
- *    Copyright 2014 Jörg Prante
+ *    Copyright 2014-2018 Jörg Prante and Itamar Syn-Hershko
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,34 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.xbib.logging.log4j2;
+package com.bigdataboutique.logging.log4j2;
 
 import org.apache.logging.log4j.core.appender.AppenderLoggingException;
-import org.apache.logging.log4j.nosql.appender.NoSqlConnection;
+import org.apache.logging.log4j.nosql.appender.AbstractNoSqlConnection;
+import org.apache.logging.log4j.nosql.appender.DefaultNoSqlObject;
 import org.apache.logging.log4j.nosql.appender.NoSqlObject;
 
-import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-public class ElasticsearchHttpConnection implements NoSqlConnection<Map<String, Object>, ElasticsearchObject> {
+public class ElasticsearchHttpConnection extends AbstractNoSqlConnection<Map<String, Object>, DefaultNoSqlObject> {
 
     private final ElasticsearchHttpClient client;
-
-    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public ElasticsearchHttpConnection(final ElasticsearchHttpClient client) {
         this.client = client;
     }
 
     @Override
-    public ElasticsearchObject createObject() {
-        return new ElasticsearchObject();
+    public DefaultNoSqlObject createObject() {
+        return new DefaultNoSqlObject();
     }
 
     @Override
-    public ElasticsearchObject[] createList(final int length) {
-        return new ElasticsearchObject[length];
+    public DefaultNoSqlObject[] createList(final int length) {
+        return new DefaultNoSqlObject[length];
     }
 
     @Override
@@ -53,18 +50,7 @@ public class ElasticsearchHttpConnection implements NoSqlConnection<Map<String, 
     }
 
     @Override
-    public void close() {
-        if (closed.compareAndSet(false, true)) {
-            try {
-                client.close();
-            } catch (IOException e) {
-                throw new AppenderLoggingException("failed to close log to Elasticsearch HTTP: " + e.getMessage(), e);
-            }
-        }
-    }
-
-    @Override
-    public boolean isClosed() {
-        return closed.get();
+    protected void closeImpl() {
+        client.close();
     }
 }

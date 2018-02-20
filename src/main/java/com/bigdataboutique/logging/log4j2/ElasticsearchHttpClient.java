@@ -1,5 +1,5 @@
 /**
- *    Copyright 2014 Jörg Prante
+ *    Copyright 2014-2018 Jörg Prante and Itamar Syn-Hershko
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,20 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.xbib.logging.log4j2;
+package com.bigdataboutique.logging.log4j2;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.appender.AppenderLoggingException;
 import org.apache.logging.log4j.status.StatusLogger;
 
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,16 +43,14 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 
-public class ElasticsearchHttpClient {
+public class ElasticsearchHttpClient implements Closeable {
 
-    private static final Logger logger = StatusLogger.getLogger();
+    private static final Logger LOGGER = StatusLogger.getLogger();
 
     private static final char[] HEX_CHARS = {
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
@@ -57,141 +59,157 @@ public class ElasticsearchHttpClient {
     private static final Set<Character> JS_ESCAPE_CHARS;
 
     static {
-        Set<Character> mandatoryEscapeSet = new HashSet<Character>();
+        Set<Character> mandatoryEscapeSet = new HashSet<>();
         mandatoryEscapeSet.add('"');
         mandatoryEscapeSet.add('\\');
         JS_ESCAPE_CHARS = Collections.unmodifiableSet(mandatoryEscapeSet);
     }
 
-    private final Queue<String> requests = new ConcurrentLinkedQueue<String>();
+    private final Queue<Map<String, Object>> requests = new ConcurrentLinkedQueue<>();
 
-    private final ReentrantLock lock = new ReentrantLock(true);
-
-    private final String url;
+    private final URL bulkUrl;
+    private final URL clusterUrl;
 
     private final String index;
 
     private final String type;
 
-    private final boolean create;
-
     private final int maxActionsPerBulkRequest;
 
-    private final boolean logresponses;
+    private final boolean logResponses;
 
     private final ScheduledExecutorService service;
 
-    private volatile boolean closed = false;
+    private final String hostname;
+    private final String ipAddress;
 
-    private HttpURLConnection connection;
+    private boolean clusterAvailable = false;
+    private volatile boolean closed;
 
-    public ElasticsearchHttpClient(String url, String index, String type,
-                                   boolean create, int maxActionsPerBulkRequest, long flushSecs, boolean logresponses) {
-        this.url = url;
+    public ElasticsearchHttpClient(String url, String index, String type, int maxActionsPerBulkRequest,
+                                   long flushSecs, boolean logResponses)
+            throws MalformedURLException {
+
+        this.clusterUrl = new URL(url);
+        this.bulkUrl = new URL(url + "/_bulk".replace("//_bulk", "/_bulk"));
+
         this.index = index;
         this.type = type;
-        this.create = create;
         this.maxActionsPerBulkRequest = maxActionsPerBulkRequest;
-        this.logresponses = logresponses;
+        this.logResponses = logResponses;
         this.closed = false;
-        this.service = Executors.newScheduledThreadPool(1);
-        service.scheduleAtFixedRate(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    flush();
-                } catch (IOException e) {
-                    logger.error(e.getMessage(), e);
-                    throw new AppenderLoggingException(e);
+        this.service = Executors.newScheduledThreadPool(5);
+        this.service.scheduleAtFixedRate(this::flush, flushSecs, flushSecs, TimeUnit.SECONDS);
+
+        // Get some info on the machine running us, which we will then add to all logs
+        String _hostname = null, _ipAddress = null;
+        try {
+            final InetAddress addr = InetAddress.getLocalHost();
+            _hostname = addr.getHostName();
+            _ipAddress = addr.getHostAddress();
+        } catch (UnknownHostException e) {
+            /**/
+        }
+        this.hostname = _hostname;
+        this.ipAddress = _ipAddress;
+    }
+
+    public void index(Map<String, Object> source) {
+        source.put("hostName", hostname);
+        source.put("hostIp", ipAddress);
+        requests.add(source);
+    }
+
+    private boolean checkConnection() {
+        try {
+            final HttpURLConnection connection = (HttpURLConnection) clusterUrl.openConnection();
+            connection.setDoOutput(true);
+            connection.setRequestMethod("HEAD");
+            connection.getInputStream().close();
+            return true;
+        } catch (IOException e) {
+            LOGGER.warn(e);
+            return false;
+        }
+    }
+
+    private void flush() {
+        if (!clusterAvailable) {
+            clusterAvailable = checkConnection();
+            if (!clusterAvailable) {
+                LOGGER.warn("Elasticsearch cluster unavailable, skipping flush");
+                return;
+            }
+        }
+
+        while (!requests.isEmpty()) {
+            // Generate index name to be used for this current bulk
+            final String indexName = index.indexOf('\'') < 0 ? index : getIndexNameDateFormat(index).format(new Date());
+
+            try {
+                final HttpURLConnection connection = (HttpURLConnection) bulkUrl.openConnection();
+                connection.setDoOutput(true);
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("content-type", "application/x-ndjson");
+
+                final StringBuilder sb = new StringBuilder();
+                int i = maxActionsPerBulkRequest;
+                Map<String, Object> request;
+                while ((request = requests.poll()) != null && (i-- >= 0)) {
+                    sb.append(build(indexName, type, request));
                 }
 
-            }
-        }, flushSecs, flushSecs, TimeUnit.SECONDS);
-    }
+                OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream(), "UTF-8");
+                writer.write(sb.toString());
+                writer.close();
 
-    public ElasticsearchHttpClient index(Map<String, Object> source) {
-        if (closed) {
-            logger.error("logger is closed");
-            throw new AppenderLoggingException("logger is closed");
-        }
-        try {
-            requests.add(build(index, type, create, source));
-        } catch (Exception e) {
-            logger.error(e);
-            closed = true;
-        }
-        return this;
-    }
-
-    public void flush() throws IOException {
-        lock.lock();
-        try {
-            while (!requests.isEmpty()) {
-                try {
-                    if (closed) {
-                        logger.error("logger is closed");
-                        return;
-                    }
-                    connection = (HttpURLConnection) new URL(url).openConnection();
-                    connection.setDoOutput(true);
-                    connection.setRequestMethod("POST");
-                    connection.setRequestProperty("content-type", "application/x-ndjson");
-                    StringBuilder sb = new StringBuilder();
-                    int i = maxActionsPerBulkRequest;
-                    String request;
-                    while ((request = requests.poll()) != null && (i-- >= 0)) {
-                        sb.append(request);
-                    }
-                    OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream(), "UTF-8");
-                    writer.write(sb.toString());
-                    writer.close();
-                    if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                        // read response
-                        if (logresponses) {
-                            sb.setLength(0);
-                            BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
-                            String s;
-                            while ((s = in.readLine()) != null) {
-                                sb.append(s);
-                            }
-                            in.close();
-                            logger.info(sb.toString());
+                if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                    // read response
+                    if (logResponses) {
+                        sb.setLength(0);
+                        BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
+                        String s;
+                        while ((s = in.readLine()) != null) {
+                            sb.append(s);
                         }
-                    } else {
-                        throw new AppenderLoggingException("no OK response: "
-                                + connection.getResponseCode() + " " + connection.getResponseMessage());
+                        in.close();
+                        LOGGER.trace(sb.toString());
                     }
-
-                } finally {
-                    if (connection != null) {
-                        connection.disconnect();
-                    }
+                } else {
+                    throw new AppenderLoggingException("Received non-OK response from Elasticsearch: "
+                            + connection.getResponseCode() + " " + connection.getResponseMessage());
                 }
+            } catch (AppenderLoggingException e) {
+                LOGGER.error("Encountered error while pushing to Elasticsearch, logs were dropped", e);
+            } catch (IOException e) {
+                LOGGER.error("Encountered error while pushing to Elasticsearch, logs were dropped", e);
+                clusterAvailable = false;
             }
-        } catch (Throwable t) {
-            logger.error(t);
-            closed = true;
-            throw new AppenderLoggingException("Elasticsearch HTTP error", t);
-        } finally {
-            lock.unlock();
         }
     }
 
-    public void close() throws IOException {
+    public void close() {
         if (!closed) {
-            service.shutdownNow();
-            flush();
-            connection.getOutputStream().close();
-            connection.disconnect();
+            service.schedule(this::flush, 0, TimeUnit.NANOSECONDS);
+            service.shutdown();
+            try {
+                if (!service.awaitTermination(5, TimeUnit.SECONDS)) {
+                    final List<Runnable> threads = service.shutdownNow();
+                    if (threads.size() > 0) {
+                        LOGGER.warn("Some bulk tasks were dropped while shutting down");
+                    }
+                }
+            } catch (InterruptedException e) {
+                service.shutdownNow();
+            }
         }
         closed = true;
     }
 
-    private String build(String index, String type, boolean create, Map<String, Object> source) {
-        index = index.indexOf('\'') < 0 ? index : getIndexNameDateFormat(index).format(new Date());
+    private String build(final String index, final String type, final Map<String, Object> source) {
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"").append(create ? "create" : "index")
-                .append("\":{\"_index\":\"").append(index)
+        sb.append("{\"index\":")
+                .append("{\"_index\":\"").append(index)
                 .append("\",\"_type\":\"").append(type)
                 .append("\"}}\n{");
         build(sb, source);
@@ -334,11 +352,7 @@ public class ElasticsearchHttpClient {
 
     private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
 
-    private static final ThreadLocal<Map<String, SimpleDateFormat>> df = new ThreadLocal<Map<String, SimpleDateFormat>>() {
-        public Map<String, SimpleDateFormat> initialValue() {
-            return new HashMap<String, SimpleDateFormat>();
-        }
-    };
+    private static final ThreadLocal<Map<String, SimpleDateFormat>> df = ThreadLocal.withInitial(HashMap::new);
 
     private SimpleDateFormat getDateFormat(String format) {
         Map<String, SimpleDateFormat> formatters = df.get();
