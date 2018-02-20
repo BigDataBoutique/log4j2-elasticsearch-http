@@ -1,29 +1,33 @@
 # Log4j2 Elasticsearch HTTP appender
 
-This NoSql Log4j2 appenderlogs messages to Elasticsearch. 
+This NoSql Log4j2 appender logs messages to Elasticsearch via HTTP, asynchronously without damaging your application performance, and in bulks. 
 
 It uses the Java JDK HTTP client to connect to the HTTP node bulk endpoint of a running Elasticsearch cluster.
 
+This is a fork of https://github.com/jprante/log4j2-elasticsearch-http which have undergone a rewrite and hardening to ensure application performance is never affected.  
+
 In the `log4j2.xml` configuration file, you can specify the following parameters:
 
-`url` the Elasticsearch HTTP node \_bulk endpoint URL (default: `http://localhost:9200/_bulk`)
+`url` the Elasticsearch HTTP node (default: `http://localhost:9200/`)
 
 `index` the index name of the Elasticsearch cluster to write log messages to (default: `log4j2`)
 The index name may be a date format string like 'log4j2-'yyyyMMdd
 
-`type` the type of the Elasticsearch index to write log messages to (default: `log4j2`)
+`type` the type of the Elasticsearch index to write log messages to (default: `doc`; please note Elasticsearch docs are deprecated so you probably shouldn't use this setting)
 
 `maxActionsPerBulkRequest` maximum number of indexing action in a single bulk request (default: `1000`)
+
+`flushRateSeconds` how often to execute the asynchronous flush to Elasticsearch
 
 ## Log4j2.xml example
 
     <configuration status="OFF">
         <appenders>
             <NoSql name="elasticsearchAppender">
-                <Elasticsearch url="http://localhost:9200/_bulk" index="log4j2" type="log4j2"/>
+                <Elasticsearch url="http://localhost:9200/" index="log4j2"/>
             </NoSql>
             <NoSql name="elasticsearchTimeAppender">
-                <Elasticsearch url="http://localhost:9200/_bulk" index="'log4j2-'yyyyMMdd" type="log4j2"/>
+                <Elasticsearch url="http://localhost:9200/" index="'log4j2-'yyyyMMdd"/>
             </NoSql>
         </appenders>
         <loggers>
@@ -60,7 +64,7 @@ The index name may be a date format string like 'log4j2-'yyyyMMdd
         "max_score" : 1.0,
         "hits" : [ {
           "_index" : "log4j2",
-          "_type" : "log4j2",
+          "_type" : "doc",
           "_id" : "dzvP2kbtS8Sr0uEZojMfKg",
           "_score" : 1.0,
           "_source":{"date":"2014-07-18T06:17:38.896Z","contextStack":[],"level":"INFO",
@@ -77,44 +81,34 @@ The index name may be a date format string like 'log4j2-'yyyyMMdd
 
 | Log4j2 Elasticsearch HTTP appender   | Release date |
 | -------------------------------------| -------------|
-| 1.0.3                                | Dec  4, 2014 |
-| 1.0.1                                | Nov 21, 2014 |
-| 1.0.0                                | Sep 15, 2014 |
+| 2.5.1                                | Feb 20, 2018 |
 
 
 # Installation
 
-    Maven coordinates
+Maven coordinates:
     
-        <repositories>
-            <repository>
-                <id>xbib</id>
-                <url>http://xbib.org/repository</url>
-            </repository>
-        </repositories>
-
         <dependencies>
             <dependency>
-                <groupId>org.xbib.logging.log4j2</groupId>
+                <groupId>com.bigdataboutique.logging.log4j2</groupId>
                 <artifactId>log4j2-elasticsearch-http</artifactId>
-                <version>1.0.3</version>
+                <version>2.5.1</version>
             </dependency>
         </dependencies>
 
+Gradle coordinates:
 
-# Project docs
-
-The Maven project site is available at [Github](http://jprante.github.io/log4j2-elasticsearch-http)
+    compile group: 'com.bigdataboutique.logging.log4j2', name: 'log4j2-elasticsearch-http', version: '2.5.1'
 
 ## Issues
 
-All feedback is welcome! If you find issues, please post them at [Github](https://github.com/jprante/log4j2-elasticsearch-http/issues)
+All feedback is welcome! If you find issues, please post them at [Github](https://github.com/BigDataBoutique/log4j2-elasticsearch-http/issues)
 
 # License
 
 Log4j2 Elasticsearch Appender
 
-Copyright (C) 2014 Jörg Prante
+Copyright (C) 2014-2018 Jörg Prante and Itamar Syn-Hershko
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
