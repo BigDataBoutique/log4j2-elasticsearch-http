@@ -65,7 +65,9 @@ public class ElasticsearchHttpClient implements Closeable {
         JS_ESCAPE_CHARS = Collections.unmodifiableSet(mandatoryEscapeSet);
     }
 
+    private static final long MAX_NUMBER_OF_QUEUED_REQUESTS = 500_000;
     private final Queue<Map<String, Object>> requests = new ConcurrentLinkedQueue<>();
+    private long numberOfQueuedRequests = 0;
 
     private final URL bulkUrl;
     private final URL clusterUrl;
@@ -115,9 +117,12 @@ public class ElasticsearchHttpClient implements Closeable {
     }
 
     public void index(Map<String, Object> source) {
-        source.put("hostName", hostname);
-        source.put("hostIp", ipAddress);
-        requests.add(source);
+        if (numberOfQueuedRequests > MAX_NUMBER_OF_QUEUED_REQUESTS) {
+            source.put("hostName", hostname);
+            source.put("hostIp", ipAddress);
+            requests.add(source);
+            ++numberOfQueuedRequests;
+        }
     }
 
     private boolean checkConnection() {
@@ -156,6 +161,7 @@ public class ElasticsearchHttpClient implements Closeable {
                 int i = maxActionsPerBulkRequest;
                 Map<String, Object> request;
                 while ((request = requests.poll()) != null && (i-- >= 0)) {
+                    --numberOfQueuedRequests;
                     sb.append(build(indexName, type, request));
                 }
 
