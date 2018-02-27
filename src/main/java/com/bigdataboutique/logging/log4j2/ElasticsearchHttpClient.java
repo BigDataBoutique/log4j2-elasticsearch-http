@@ -180,10 +180,11 @@ public class ElasticsearchHttpClient implements Closeable {
                             + connection.getResponseCode() + " " + connection.getResponseMessage());
                 }
             } catch (AppenderLoggingException e) {
-                LOGGER.error("Encountered error while pushing to Elasticsearch, logs were dropped", e);
+                LOGGER.error("Encountered error while pushing to Elasticsearch, some logs may have been dropped", e);
             } catch (IOException e) {
                 LOGGER.error("Encountered error while pushing to Elasticsearch, logs were dropped", e);
                 clusterAvailable = false;
+                return;
             }
         }
     }
