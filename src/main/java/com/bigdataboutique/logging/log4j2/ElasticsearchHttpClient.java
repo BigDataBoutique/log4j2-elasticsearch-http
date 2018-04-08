@@ -125,24 +125,22 @@ public class ElasticsearchHttpClient implements Closeable {
         }
     }
 
-    private boolean checkConnection() {
-        try {
-            final HttpURLConnection connection = (HttpURLConnection) clusterUrl.openConnection();
-            connection.setDoOutput(true);
-            connection.setRequestMethod("HEAD");
-            connection.getInputStream().close();
-            return true;
-        } catch (IOException e) {
-            LOGGER.warn(e);
-            return false;
-        }
+    private boolean checkConnection() throws IOException {
+        final HttpURLConnection connection = (HttpURLConnection) clusterUrl.openConnection();
+        connection.setDoOutput(true);
+        connection.setRequestMethod("HEAD");
+        connection.getInputStream().close();
+        return true;
     }
 
     private void flush() {
         if (!clusterAvailable) {
-            clusterAvailable = checkConnection();
-            if (!clusterAvailable) {
-                LOGGER.warn("Elasticsearch cluster unavailable, skipping flush");
+            try {
+                clusterAvailable = checkConnection();
+            } catch (IOException e) {
+                clusterAvailable = false;
+                LOGGER.debug(e);
+                LOGGER.warn("Elasticsearch cluster unavailable, skipping flush (" + e.getMessage() + ")");
                 return;
             }
         }
