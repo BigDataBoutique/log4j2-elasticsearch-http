@@ -21,8 +21,14 @@ import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.nosql.appender.NoSqlProvider;
 import org.apache.logging.log4j.status.StatusLogger;
+import org.apache.logging.log4j.util.Strings;
 
 import java.net.MalformedURLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Plugin(name = "Elasticsearch", category = "Core", printObject = true)
 public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHttpConnection> {
@@ -64,6 +70,7 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
             @PluginAttribute("url") String url,
             @PluginAttribute(value = "index", defaultString = "log4j") String index,
             @PluginAttribute(value = "type", defaultString = "doc") String type,
+            @PluginAttribute(value = "tags") String tags,
             @PluginAttribute(value = "flushRateSeconds", defaultInt = 10) Integer flushRateSeconds,
             @PluginAttribute(value = "maxActionsPerBulkRequest", defaultInt = 1000) Integer maxActionsPerBulkRequest,
             @PluginAttribute(value = "logResponses", defaultBoolean = false) Boolean logResponses) {
@@ -81,16 +88,49 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
             flushRateSeconds = 10;
         }
 
+        // Parse the tags list and prepare an easy to use dictionary for it
+        final Map<String, List<String>> applyTags = createTagsMap(tags);
+
         String description = "url=" + url + ",index=" + index + ",type=" + type;
         ElasticsearchHttpClient elasticsearchClient;
         LOGGER.info("Elasticsearch appender " + description + " defined");
         try {
-            elasticsearchClient = new ElasticsearchHttpClient(url, index, type,
+            elasticsearchClient = new ElasticsearchHttpClient(url, index, type, applyTags,
                     maxActionsPerBulkRequest, flushRateSeconds, logResponses);
         } catch (MalformedURLException e) {
             LOGGER.error(e);
             return null;
         }
         return new ElasticsearchHttpProvider(elasticsearchClient, description);
+    }
+
+    public static Map<String, List<String>> createTagsMap(final String definitions) {
+        if (Strings.isBlank(definitions)) {
+            return Collections.emptyMap();
+        }
+
+        final Map<String, List<String>> applyTags = new HashMap<>();
+        final String[] tagsArray = definitions.split(",");
+        for (final String tag : tagsArray) {
+            if (Strings.isNotBlank(tag)) {
+                String[] kv = tag.split(":");
+                final String key, value;
+                if (kv.length > 1) {
+                    key = kv[0];
+                    value = kv[1];
+                } else {
+                    key = "tags";
+                    value = kv[0];
+                }
+
+                if (applyTags.computeIfPresent(key, (k, v) -> { v.add(value); return v; }) == null) {
+                    applyTags.putIfAbsent(key, new ArrayList<String>() {{
+                        add(value);
+                    }});
+                }
+            }
+        }
+
+        return applyTags;
     }
 }
