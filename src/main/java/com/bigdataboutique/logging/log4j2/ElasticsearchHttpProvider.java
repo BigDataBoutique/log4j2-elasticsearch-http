@@ -41,7 +41,8 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
 
     private ElasticsearchHttpProvider(final ElasticsearchHttpClient client, final String description) {
         this.client = client;
-        this.description = "elasticsearch-http{ " + description + " }";
+        this.description = "elasticsearch{ " + description + " }";
+        LOGGER.info(description + " initialized");
     }
 
     @Override
@@ -91,9 +92,7 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
         // Parse the tags list and prepare an easy to use dictionary for it
         final Map<String, List<String>> applyTags = createTagsMap(tags);
 
-        String description = "url=" + url + ",index=" + index + ",type=" + type;
         ElasticsearchHttpClient elasticsearchClient;
-        LOGGER.info("Elasticsearch appender " + description + " defined");
         try {
             elasticsearchClient = new ElasticsearchHttpClient(url, index, type, applyTags,
                     maxActionsPerBulkRequest, flushRateSeconds, logResponses);
@@ -101,6 +100,8 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
             LOGGER.error(e);
             return null;
         }
+
+        String description = "url=" + url + ",index=" + index + ",type=" + type + ",tags=" + tags;
         return new ElasticsearchHttpProvider(elasticsearchClient, description);
     }
 
