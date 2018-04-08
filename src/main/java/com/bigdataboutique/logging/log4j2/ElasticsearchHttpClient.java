@@ -118,13 +118,13 @@ public class ElasticsearchHttpClient implements Closeable {
     }
 
     public void index(Map<String, Object> source) {
-        if (numberOfQueuedRequests > MAX_NUMBER_OF_QUEUED_REQUESTS) {
+        if (numberOfQueuedRequests < MAX_NUMBER_OF_QUEUED_REQUESTS) {
             source.put("hostName", hostname);
             source.put("hostIp", ipAddress);
             for (Map.Entry<String, List<String>> entry : applyTags.entrySet()) {
                 source.putIfAbsent(entry.getKey(), entry.getValue());
             }
-            requests.add(source);
+            requests.offer(source);
             ++numberOfQueuedRequests;
         }
     }
