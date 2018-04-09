@@ -29,31 +29,33 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Plugin(name = "Elasticsearch", category = "Core", printObject = true)
 public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHttpConnection> {
 
-    private final ElasticsearchHttpClient client;
-
     private static final Logger LOGGER = StatusLogger.getLogger();
 
     private final String description;
+    private final ElasticsearchHttpConnection connection;
 
-    private ElasticsearchHttpProvider(final ElasticsearchHttpClient client, final String description) {
-        this.client = client;
+    public ElasticsearchHttpProvider(final ElasticsearchHttpConnection connection, final String description) {
+        this.connection = connection;
         this.description = "elasticsearch{ " + description + " }";
         LOGGER.info(description + " initialized");
     }
 
     @Override
     public ElasticsearchHttpConnection getConnection() {
-        return new ElasticsearchHttpConnection(client);
+        return connection;
     }
 
     @Override
     public String toString() {
         return description;
     }
+
+    private final static ConcurrentHashMap<String, ElasticsearchHttpConnection> connections = new ConcurrentHashMap<>();
 
     /**
      * Factory method for creating an Elasticsearch provider within the plugin manager.
@@ -92,17 +94,22 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
         // Parse the tags list and prepare an easy to use dictionary for it
         final Map<String, List<String>> applyTags = createTagsMap(tags);
 
-        ElasticsearchHttpClient elasticsearchClient;
-        try {
-            elasticsearchClient = new ElasticsearchHttpClient(url, index, type, applyTags,
-                    maxActionsPerBulkRequest, flushRateSeconds, logResponses);
-        } catch (MalformedURLException e) {
-            LOGGER.error(e);
-            return null;
+        final String description = "url=" + url + ",index=" + index + ",type=" + type + ",tags=" + tags;
+        if (!connections.containsKey(description)) {
+            ElasticsearchHttpClient elasticsearchClient;
+            try {
+                elasticsearchClient = new ElasticsearchHttpClient(url, index, type, applyTags,
+                        maxActionsPerBulkRequest, flushRateSeconds, logResponses);
+            } catch (MalformedURLException e) {
+                LOGGER.error(e);
+                return null;
+            }
+            if (connections.putIfAbsent(description, new ElasticsearchHttpConnection(elasticsearchClient)) != null) {
+                elasticsearchClient.close();
+            }
         }
 
-        String description = "url=" + url + ",index=" + index + ",type=" + type + ",tags=" + tags;
-        return new ElasticsearchHttpProvider(elasticsearchClient, description);
+        return new ElasticsearchHttpProvider(connections.get(description), description);
     }
 
     public static Map<String, List<String>> createTagsMap(final String definitions) {
