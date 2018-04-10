@@ -1,5 +1,7 @@
 # Log4j2 Elasticsearch HTTP appender
 
+<a href="https://snyk.io/test/github/BigDataBoutique/log4j2-elasticsearch-http"><img src="https://snyk.io/test/github/BigDataBoutique/log4j2-elasticsearch-http/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/BigDataBoutique/log4j2-elasticsearch-http" style="max-width:100%;"/></a>
+
 This NoSql Log4j2 appender logs messages to Elasticsearch via HTTP, asynchronously without damaging your application performance, and in bulks. 
 
 It uses the Java JDK HTTP client to connect to the HTTP node bulk endpoint of a running Elasticsearch cluster.
