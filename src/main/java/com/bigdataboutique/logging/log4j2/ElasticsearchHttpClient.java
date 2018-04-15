@@ -215,7 +215,7 @@ public class ElasticsearchHttpClient implements Closeable {
         closed = true;
     }
 
-    private String build(final String index, final String type, final Map<String, Object> source) {
+    private static String build(final String index, final String type, final Map<String, Object> source) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\"index\":")
                 .append("{\"_index\":\"").append(index)
@@ -227,7 +227,7 @@ public class ElasticsearchHttpClient implements Closeable {
     }
 
     @SuppressWarnings("unchecked")
-    private void build(StringBuilder sb, Object object) {
+    static void build(StringBuilder sb, Object object) {
         if (object instanceof Map) {
             sb.append('{');
             build(sb, (Map<String, Object>) object);
@@ -255,7 +255,7 @@ public class ElasticsearchHttpClient implements Closeable {
         }
     }
 
-    private void build(StringBuilder sb, List<Object> list) {
+    private static void build(StringBuilder sb, List<Object> list) {
         boolean started = false;
         for (Object object : list) {
             if (started) {
@@ -266,13 +266,14 @@ public class ElasticsearchHttpClient implements Closeable {
         }
     }
 
-    private void build(StringBuilder sb, Map<String, Object> map) {
+    private static void build(StringBuilder sb, Map<String, Object> map) {
         boolean started = false;
         for (Map.Entry<String, Object> me : map.entrySet()) {
             if (started) {
                 sb.append(',');
             }
-            // try to parse message as JSON
+
+            // try to parse message as JSON and flatten the structure if we are parsing the "message" field
             if ("message".equals(me.getKey()) && me.getValue() != null) {
                 JsonParser parser = new JsonParser(new StringReader(me.getValue().toString()));
                 try {
@@ -289,7 +290,7 @@ public class ElasticsearchHttpClient implements Closeable {
         }
     }
 
-    private void escape(StringBuilder out, CharSequence plainText) {
+    private static void escape(StringBuilder out, CharSequence plainText) {
         int pos = 0;
         int len = plainText.length();
         for (int charCount, i = 0; i < len; i += charCount) {
@@ -333,7 +334,7 @@ public class ElasticsearchHttpClient implements Closeable {
         out.append(plainText, pos, len);
     }
 
-    private boolean isControlCharacter(int codePoint) {
+    private static boolean isControlCharacter(int codePoint) {
         return codePoint < 0x20
                 || codePoint == 0x2028  // Line separator
                 || codePoint == 0x2029  // Paragraph separator
@@ -341,7 +342,7 @@ public class ElasticsearchHttpClient implements Closeable {
     }
 
 
-    private void appendHexJavaScriptRepresentation(StringBuilder sb, int codePoint) {
+    private static void appendHexJavaScriptRepresentation(StringBuilder sb, int codePoint) {
         sb.append("\\u")
                 .append(HEX_CHARS[(codePoint >>> 12) & 0xf])
                 .append(HEX_CHARS[(codePoint >>> 8) & 0xf])
@@ -349,7 +350,7 @@ public class ElasticsearchHttpClient implements Closeable {
                 .append(HEX_CHARS[codePoint & 0xf]);
     }
 
-    private boolean mustEscapeCharInJsString(int codepoint) {
+    private static boolean mustEscapeCharInJsString(int codepoint) {
         if (!Character.isSupplementaryCodePoint(codepoint)) {
             char c = (char) codepoint;
             return JS_ESCAPE_CHARS.contains(c);
@@ -363,7 +364,7 @@ public class ElasticsearchHttpClient implements Closeable {
 
     private static final ThreadLocal<Map<String, SimpleDateFormat>> df = ThreadLocal.withInitial(HashMap::new);
 
-    private SimpleDateFormat getDateFormat(String format) {
+    private static SimpleDateFormat getDateFormat(String format) {
         Map<String, SimpleDateFormat> formatters = df.get();
         SimpleDateFormat formatter = formatters.get(format);
         if (formatter == null) {
@@ -386,14 +387,14 @@ public class ElasticsearchHttpClient implements Closeable {
         return formatter;
     }
 
-    private String format(Date date) {
+    private static String format(Date date) {
         if (date == null) {
             return null;
         }
         return getDateFormat(ISO_FORMAT).format(date);
     }
 
-    class JsonParser {
+    static class JsonParser {
 
         private static final int DEFAULT_BUFFER_SIZE = 1024;
 
