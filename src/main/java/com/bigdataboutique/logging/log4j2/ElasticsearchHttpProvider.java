@@ -84,6 +84,10 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
             url = "http://localhost:9200";
         }
 
+        if (!url.endsWith("/")) {
+            url += "/";
+        }
+
         if (maxActionsPerBulkRequest < 1) {
             maxActionsPerBulkRequest = 1000;
         }

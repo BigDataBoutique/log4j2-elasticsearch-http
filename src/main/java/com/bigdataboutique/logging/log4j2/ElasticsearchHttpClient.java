@@ -88,12 +88,12 @@ public class ElasticsearchHttpClient implements Closeable {
     private boolean clusterAvailable = false;
     private volatile boolean closed;
 
-    public ElasticsearchHttpClient(String url, String index, String type, Map<String, List<String>> applyTags,
-                                   int maxActionsPerBulkRequest, long flushSecs, boolean logResponses)
+    ElasticsearchHttpClient(String url, String index, String type, Map<String, List<String>> applyTags,
+                            int maxActionsPerBulkRequest, long flushSecs, boolean logResponses)
             throws MalformedURLException {
 
         this.clusterUrl = new URL(url);
-        this.bulkUrl = new URL(url + "/_bulk".replace("//_bulk", "/_bulk"));
+        this.bulkUrl = new URL(url + "_bulk");
 
         this.index = index;
         this.type = type;
