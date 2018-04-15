@@ -15,6 +15,7 @@
  */
 package com.bigdataboutique.logging.log4j2;
 
+import com.bigdataboutique.logging.JsonLogEvent;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
@@ -39,7 +40,7 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
     private final String description;
     private final ElasticsearchHttpConnection connection;
 
-    public ElasticsearchHttpProvider(final ElasticsearchHttpConnection connection, final String description) {
+    private ElasticsearchHttpProvider(final ElasticsearchHttpConnection connection, final String description) {
         this.connection = connection;
         this.description = "elasticsearch{ " + description + " }";
         LOGGER.info(description + " initialized");
@@ -140,5 +141,11 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
         }
 
         return applyTags;
+    }
+
+    public static String toJsonString(HashMap<String, Object> map) {
+        final StringBuilder sb = new StringBuilder(100);
+        ElasticsearchHttpClient.build(sb, map);
+        return sb.toString();
     }
 }
