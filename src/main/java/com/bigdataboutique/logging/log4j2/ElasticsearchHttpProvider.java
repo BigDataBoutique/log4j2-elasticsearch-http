@@ -80,7 +80,7 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
 
         if (url == null || url.isEmpty()) {
             // TODO test why it's not working with StrSubtitor
-            url = "http://localhost:9200/_bulk";
+            url = "http://localhost:9200";
         }
 
         if (maxActionsPerBulkRequest < 1) {
