@@ -31,4 +31,9 @@ test:
   script:
     - ./gradlew check
 
-
+publish:
+  stage: publish
+  script:
+    - ./gradlew publish bintrayUpload
+  only:
+    - master
