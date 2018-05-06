@@ -80,10 +80,12 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
             @PluginAttribute(value = "logResponses", defaultBoolean = false) Boolean logResponses) {
 
         if (url == null || url.isEmpty()) {
-            // TODO test why it's not working with StrSubtitor
-            url = "http://localhost:9200";
+            url = "http://localhost:9200/";
+        } else {
+            if (!url.startsWith("http")) {
+                url = "http://" + url;
+            }
         }
-
         if (!url.endsWith("/")) {
             url += "/";
         }
