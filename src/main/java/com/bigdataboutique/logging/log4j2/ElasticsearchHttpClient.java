@@ -85,6 +85,8 @@ public class ElasticsearchHttpClient implements Closeable {
     private final String hostname;
     private final String ipAddress;
 
+    private long lastErrorReported = 0;
+
     private boolean clusterAvailable = false;
     private volatile boolean closed;
 
@@ -142,9 +144,13 @@ public class ElasticsearchHttpClient implements Closeable {
             try {
                 clusterAvailable = checkConnection();
             } catch (IOException e) {
+                // Only report errors once every 5 minutes or when the cluster availability state changes
+                if (clusterAvailable || System.currentTimeMillis() - lastErrorReported >= 300000) {
+                    LOGGER.debug(e);
+                    LOGGER.warn("Elasticsearch cluster unavailable, skipping flush (" + e.getMessage() + ")");
+                    lastErrorReported = System.currentTimeMillis();
+                }
                 clusterAvailable = false;
-                LOGGER.debug(e);
-                LOGGER.warn("Elasticsearch cluster unavailable, skipping flush (" + e.getMessage() + ")");
                 return;
             }
         }
