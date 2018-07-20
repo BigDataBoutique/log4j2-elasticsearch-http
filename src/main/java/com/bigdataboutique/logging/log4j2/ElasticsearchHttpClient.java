@@ -65,9 +65,9 @@ public class ElasticsearchHttpClient implements Closeable {
         JS_ESCAPE_CHARS = Collections.unmodifiableSet(mandatoryEscapeSet);
     }
 
-    private static final long MAX_NUMBER_OF_QUEUED_REQUESTS = 500_000;
     private final Queue<Map<String, Object>> requests = new ConcurrentLinkedQueue<>();
     private long numberOfQueuedRequests = 0;
+    private final int maxQueuedRequests;
 
     private final URL bulkUrl;
     private final URL clusterUrl;
@@ -91,7 +91,7 @@ public class ElasticsearchHttpClient implements Closeable {
     private volatile boolean closed;
 
     ElasticsearchHttpClient(String url, String index, String type, Map<String, List<String>> applyTags,
-                            int maxActionsPerBulkRequest, long flushSecs, boolean logResponses)
+                            int maxActionsPerBulkRequest, long flushSecs, boolean logResponses, int maxQueuedRequests)
             throws MalformedURLException {
 
         this.clusterUrl = new URL(url);
@@ -117,10 +117,11 @@ public class ElasticsearchHttpClient implements Closeable {
         }
         this.hostname = _hostname;
         this.ipAddress = _ipAddress;
+        this.maxQueuedRequests = maxQueuedRequests;
     }
 
     public void index(Map<String, Object> source) {
-        if (numberOfQueuedRequests < MAX_NUMBER_OF_QUEUED_REQUESTS) {
+        if (numberOfQueuedRequests < this.maxQueuedRequests) {
             source.put("hostName", hostname);
             source.put("hostIp", ipAddress);
             for (Map.Entry<String, List<String>> entry : applyTags.entrySet()) {

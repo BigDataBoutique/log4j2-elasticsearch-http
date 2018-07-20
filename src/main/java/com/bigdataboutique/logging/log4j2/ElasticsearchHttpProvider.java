@@ -66,7 +66,8 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
      * @param type    The type of the index Elasticsearch shall use for indexing
      * @param tags    List of tags to attach to the events from this logger (comma separated)
      * @param flushRateSeconds  How often to execute flushing the buffer to Elasticsearch, in seconds
-     * @param maxActionsPerBulkRequest maximum number of actions per bulk request
+     * @param maxActionsPerBulkRequest The maximum number of actions per bulk request
+     * @param maxQueuedRequests The maximum number of logs to keep in memory before dropping them (for when the Elasticsearch destination is not available)
      * @param logResponses true if responses should be logged
      * @return a new Elasticsearch provider
      */
@@ -78,6 +79,7 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
             @PluginAttribute(value = "tags") String tags,
             @PluginAttribute(value = "flushRateSeconds", defaultInt = 10) Integer flushRateSeconds,
             @PluginAttribute(value = "maxActionsPerBulkRequest", defaultInt = 1000) Integer maxActionsPerBulkRequest,
+            @PluginAttribute(value = "maxQueuedRequests", defaultInt = 500_000) Integer maxQueuedRequests,
             @PluginAttribute(value = "logResponses", defaultBoolean = false) Boolean logResponses) {
 
         if (url == null || url.isEmpty()) {
@@ -107,7 +109,7 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
             ElasticsearchHttpClient elasticsearchClient;
             try {
                 elasticsearchClient = new ElasticsearchHttpClient(url, index, type, applyTags,
-                        maxActionsPerBulkRequest, flushRateSeconds, logResponses);
+                        maxActionsPerBulkRequest, flushRateSeconds, logResponses, maxQueuedRequests);
             } catch (MalformedURLException e) {
                 LOGGER.error(e);
                 return null;
