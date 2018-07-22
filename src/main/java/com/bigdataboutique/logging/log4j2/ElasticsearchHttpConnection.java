@@ -16,9 +16,9 @@
 package com.bigdataboutique.logging.log4j2;
 
 import org.apache.logging.log4j.core.appender.AppenderLoggingException;
-import org.apache.logging.log4j.nosql.appender.AbstractNoSqlConnection;
-import org.apache.logging.log4j.nosql.appender.DefaultNoSqlObject;
-import org.apache.logging.log4j.nosql.appender.NoSqlObject;
+import org.apache.logging.log4j.core.appender.nosql.AbstractNoSqlConnection;
+import org.apache.logging.log4j.core.appender.nosql.DefaultNoSqlObject;
+import org.apache.logging.log4j.core.appender.nosql.NoSqlObject;
 
 import java.util.Map;
 

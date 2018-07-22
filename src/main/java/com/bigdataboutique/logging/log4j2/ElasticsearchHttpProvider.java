@@ -15,21 +15,16 @@
  */
 package com.bigdataboutique.logging.log4j2;
 
-import com.bigdataboutique.logging.JsonLogEvent;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.appender.nosql.NoSqlProvider;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
-import org.apache.logging.log4j.nosql.appender.NoSqlProvider;
 import org.apache.logging.log4j.status.StatusLogger;
 import org.apache.logging.log4j.util.Strings;
 
 import java.net.MalformedURLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Plugin(name = "Elasticsearch", category = "Core", printObject = true)
