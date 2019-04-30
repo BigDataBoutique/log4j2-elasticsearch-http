@@ -70,7 +70,7 @@ public class ElasticsearchHttpProvider implements NoSqlProvider<ElasticsearchHtt
     public static ElasticsearchHttpProvider createNoSqlProvider(
             @PluginAttribute("url") String url,
             @PluginAttribute(value = "index", defaultString = "log4j") String index,
-            @PluginAttribute(value = "type", defaultString = "doc") String type,
+            @PluginAttribute(value = "type", defaultString = "_doc") String type,
             @PluginAttribute(value = "tags") String tags,
             @PluginAttribute(value = "flushRateSeconds", defaultInt = 10) Integer flushRateSeconds,
             @PluginAttribute(value = "maxActionsPerBulkRequest", defaultInt = 1000) Integer maxActionsPerBulkRequest,
