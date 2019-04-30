@@ -31,6 +31,7 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -174,7 +175,7 @@ public class ElasticsearchHttpClient implements Closeable {
                     sb.append(build(indexName, type, request));
                 }
 
-                OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream(), "UTF-8");
+                OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream(), StandardCharsets.UTF_8);
                 writer.write(sb.toString());
                 writer.close();
 
@@ -182,7 +183,7 @@ public class ElasticsearchHttpClient implements Closeable {
                     // read response
                     if (logResponses) {
                         sb.setLength(0);
-                        BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
+                        BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
                         String s;
                         while ((s = in.readLine()) != null) {
                             sb.append(s);
